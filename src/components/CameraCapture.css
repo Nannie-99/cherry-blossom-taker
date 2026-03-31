@@ -1,173 +1,128 @@
-.camera-screen {
-  background: #2a2121; /* Darker background during capture */
+/* Camera Screen ──────────────────────────────────── */
+.cam-screen {
   display: flex;
   flex-direction: column;
-  padding: 1rem 0;
-  gap: 1.5rem;
-}
-
-.camera-header {
-  padding: 1rem 3rem;
-  text-align: center;
-  border-radius: 50px;
-}
-.camera-header h2 { font-size: 1.8rem; color: var(--primary-dark); }
-.camera-header p { font-size: 1.2rem; margin-top: 4px; color: #8C7A7A;}
-
-.camera-stage {
-  position: relative;
-  width: 90vw;
-  max-width: 1000px;
-  height: 65vh;
-  margin: 0 auto;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-  background: black;
-  display: flex;
-  justify-content: center;
   align-items: center;
-}
-
-/* This is the area getting captured via html2canvas */
-.capture-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
   justify-content: center;
-  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  background: #1a1018;
+  gap: 1.2rem;
+  padding: 1rem;
 }
 
-.webcam-video {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  object-fit: cover; /* Important: fills the screen but crops appropriately */
-  transform: scaleX(-1); /* Mirror camera */
-}
-
-/* Layer where Matter.js draws effects */
-.physics-layer {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 10;
-}
-.physics-layer canvas {
-  width: 100%;
-  height: 100%;
-  /* matter.js canvas flip since webcam is flipped */
-  transform: scaleX(-1); 
-}
-
-/* Crop Guide System using CSS Border/Mask tricks */
-.crop-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 20;
-  pointer-events: none;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.crop-overlay .crop-mask {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.45); /* Darken outer area */
-}
-
-/* Type A (1x4 세로용) - 화면을 세로로 좁게 자름 (예: 3:4 비율 아크릴 프레임형) */
-.crop-overlay.type-a .crop-border {
-  position: relative;
-  width: 320px; 
-  height: 426px; /* 3:4 Aspect */
-  border: 4px dashed rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  box-shadow: 0 0 0 9999px rgba(0,0,0,0.45); /* Additional darkening hack to clear inner */
-  background: transparent;
-  z-index: 21;
-}
-
-/* Type B (2x2 가로용) - 화면을 넓게 자름 (예: 4:3) */
-.crop-overlay.type-b .crop-border {
-  position: relative;
-  width: 640px; 
-  height: 480px; /* 4:3 Aspect */
-  border: 4px dashed rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
-  background: transparent;
-  z-index: 21;
-}
-
-/* Disable mask via CSS masking if needed, but box-shadow trick is easier */
-.crop-overlay .crop-mask { 
-  display: none; /* using box-shadow instead for center hole */
-}
-
-/* HUD Element */
-.score-hud {
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  z-index: 30;
-  padding: 0.8rem 1.5rem;
-  font-size: 1.4rem;
-  color: var(--primary-dark);
-  font-weight: bold;
-  pointer-events: none;
-}
-.score-count { margin-left: 8px; font-size: 1.6rem; color: #ff5e72; }
-
-/* Flashing Effects */
-.countdown-display {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 12rem;
-  color: white;
-  z-index: 50;
-  text-shadow: 0 0 40px rgba(255, 123, 137, 0.8);
-  font-weight: 800;
-  animation: pulse 1s ease-in-out forwards;
-}
-
-.flash-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: white;
-  z-index: 100;
-  opacity: 1;
-  animation: flashFade 0.15s ease-out forwards;
-}
-@keyframes flashFade { to { opacity: 0; } }
-
-.loading-toast {
-  position: absolute;
-  bottom: 120px;
-  padding: 1rem 2rem;
-  font-size: 1.2rem;
-  z-index: 40;
-  color: #ff5e72;
-}
-
-.camera-controls {
+.cam-header {
   display: flex;
   align-items: center;
   gap: 2rem;
+  padding: 0.7rem 2rem;
+  border-radius: 50px;
+  font-size: 1.3rem;
+  color: #FF9AA2;
+  font-weight: 700;
+}
+.shot-counter { color: #FFF; font-size: 1.1rem; }
+
+/* Stage ──────────────────────────────────────────── */
+.stage-wrapper {
+  position: relative;
+  /* height cap so it fits the screen */
+  max-height: 78vh;
+  /* width will follow aspect-ratio */
+  width: auto;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(255,154,162,0.3), 0 0 0 3px rgba(255,154,162,0.4);
 }
 
-.capture-btn {
-  padding: 1.5rem 4rem;
-  font-size: 1.8rem;
+.stage-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-.capture-btn.disabled {
-  opacity: 0.5;
+
+/* HUD overlays ─────────────────────────────────── */
+.petal-hud {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  background: rgba(0,0,0,0.45);
+  color: #FFF;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 1.05rem;
+  pointer-events: none;
+}
+
+.gesture-guide {
+  position: absolute;
+  bottom: 0.7rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1rem;
+  background: rgba(0,0,0,0.4);
+  padding: 0.35rem 1.2rem;
+  border-radius: 20px;
+  font-size: 0.95rem;
+  color: #FFF;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10rem;
+  font-weight: 900;
+  color: white;
+  text-shadow: 0 0 60px rgba(255,123,137,0.9), 0 4px 24px rgba(0,0,0,0.5);
+  animation: pop 0.9s ease-out;
+  pointer-events: none;
+}
+@keyframes pop {
+  from { transform: scale(1.4); opacity: 0.4; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  background: white;
+  pointer-events: none;
+  animation: flashOut 0.2s ease-out forwards;
+}
+@keyframes flashOut { to { opacity: 0; } }
+
+/* Controls ─────────────────────────────────────── */
+.cam-controls {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.shoot-btn {
+  font-size: 1.6rem;
+  padding: 1rem 3rem;
+}
+.shoot-btn.disabled {
+  opacity: 0.45;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.loading-pill {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.6rem 1.8rem;
+  font-size: 1.1rem;
+  color: #FF9AA2;
+  border-radius: 50px;
 }

@@ -1,9 +1,20 @@
+/**
+ * CameraCapture
+ *
+ * Stage canvas = the crop preview (aspect ratio matches each individual cell).
+ *
+ * A型 (Desktop / 2×6 in print):
+ *   Final canvas 600×1800 px → 4 cells stacked, each ≈ 568×405 px
+ *   → Cell ratio ≈ 568:405 ≈ 1.4:1  →  Stage canvas  640 × 457 (landscape)
+ *
+ * B型 (Mobile / 4×6 in print):
+ *   Final canvas 1200×1800 px → 2×2 grid, each ≈ 576×826 px
+ *   → Cell ratio ≈ 576:826 ≈ 0.7:1  →  Stage canvas  480 × 686 (portrait)
+ */
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Camera } from 'lucide-react';
 import type { FrameConfig } from '../App';
 import useMediaPipe from '../hooks/useMediaPipe';
 import useMatterPhysics from '../hooks/useMatterPhysics';
-import html2canvas from 'html2canvas';
 import './CameraCapture.css';
 
 interface CameraCaptureProps {
@@ -12,183 +23,192 @@ interface CameraCaptureProps {
   onBack: () => void;
 }
 
-const CameraCapture = ({ frameConfig, onComplete, onBack }: CameraCaptureProps) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const playAreaRef = useRef<HTMLDivElement>(null);
-  const captureAreaRef = useRef<HTMLDivElement>(null);
-  const [streamData, setStreamData] = useState<MediaStream | null>(null);
-  
-  const [countdown, setCountdown] = useState<number | null>(null);
+export default function CameraCapture({ frameConfig, onComplete, onBack }: CameraCaptureProps) {
+  const videoRef      = useRef<HTMLVideoElement>(null);
+  const stageCanvas   = useRef<HTMLCanvasElement>(null);
+
+  const [countdown,   setCountdown]   = useState<number | null>(null);
+  const [flash,       setFlash]       = useState(false);
+  const [shotsTaken,  setShotsTaken]  = useState(0);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [flash, setFlash] = useState(false);
-  const [shotsTaken, setShotsTaken] = useState(0);
-  const [capturedBuffer, setCapturedBuffer] = useState<string[]>([]);
-  const isTypeA = frameConfig.type === 'A';
+  const [camReady,    setCamReady]    = useState(false);
 
-  // Initialize MediaPipe and get landmarks
+  const isA = frameConfig.type === 'A';
+
+  // Stage canvas = viewport the user shoots through.
+  // Size = individual cell aspect ratio (not whole frame ratio).
+  // A: each cell ≈ 568×405 → landscape 640×457
+  // B: each cell ≈ 576×826 → portrait  480×686
+  const STAGE_W = isA ? 640 : 480;
+  const STAGE_H = isA ? 457 : 686;
+
+  // AI hook
   const { results, isModelReady } = useMediaPipe(videoRef);
-  
-  // Initialize Matter.js physics engine on the same view
-  const { initPhysics, destroyPhysics, petalCount } = useMatterPhysics(playAreaRef, results);
 
+  // Physics / render hook (draws onto stageCanvas)
+  const { initPhysics, destroyPhysics, petalCount } = useMatterPhysics(stageCanvas, videoRef, results);
+
+  // ── Camera setup ─────────────────────────────────────────────────────────
   useEffect(() => {
-    let active = true;
-    const startCamera = async () => {
+    let stream: MediaStream | null = null;
+    let cancelled = false;
+
+    const startCam = async () => {
+      // Check API availability first
+      if (!navigator.mediaDevices?.getUserMedia) {
+        alert('이 브라우저는 카메라를 지원하지 않습니다.');
+        return;
+      }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
+          audio: false,
         });
-        if (active && videoRef.current) {
-          videoRef.current.srcObject = stream;
-          setStreamData(stream);
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+
+        const vid = videoRef.current;
+        if (!vid) return;
+        vid.srcObject = stream;
+
+        // Wait for metadata so we have real dimensions, then set canvas
+        await new Promise<void>((resolve) => {
+          vid.onloadedmetadata = () => resolve();
+        });
+        await vid.play();
+
+        if (cancelled) return;
+        if (stageCanvas.current) {
+          stageCanvas.current.width  = STAGE_W;
+          stageCanvas.current.height = STAGE_H;
         }
+        setCamReady(true);
       } catch (err) {
-        console.error("Camera access denied or error", err);
-        alert('카메라 접근 권한이 필요합니다!');
+        if (cancelled) return;
+        const e = err as DOMException;
+        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+          alert('카메라 접근 권한을 허용해 주세요!');
+        } else {
+          console.error('Camera error:', e);
+          // Not a permission error – might be device busy, retry silently
+          setTimeout(startCam, 1500);
+        }
       }
     };
-    startCamera();
 
+    startCam();
     return () => {
-      active = false;
-      if (streamData) {
-        streamData.getTracks().forEach(track => track.stop());
-      }
+      cancelled = true;
+      stream?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [STAGE_W, STAGE_H]);
 
+  // ── Start physics as long as camera is ready ──────────────────────────────
+  // Even if AI models are loading, petals should start falling.
   useEffect(() => {
-    if (streamData && isModelReady) {
+    if (camReady) {
       initPhysics();
     }
     return () => destroyPhysics();
-  }, [streamData, isModelReady, initPhysics, destroyPhysics]);
+  }, [camReady, initPhysics, destroyPhysics]);
 
-  // Handle Capture Sequence
-  const takeSequence = useCallback(() => {
+  // ── Shoot sequence ──────────────────────────────────────────────────────
+  const shoot = useCallback(() => {
     if (isCapturing) return;
     setIsCapturing(true);
-    setShotsTaken(0);
-    setCapturedBuffer([]);
+    const shots: string[] = [];
 
-    let shotCount = 0;
-    
-    const captureLoop = () => {
-      if (shotCount >= frameConfig.totalShots) {
-         return; // Finished
-      }
+    const captureOne = (doneCallback: () => void) => {
+      let c = 3;
+      setCountdown(c);
+      const iv = setInterval(() => {
+        c -= 1;
+        if (c > 0) { setCountdown(c); return; }
+        clearInterval(iv);
+        setCountdown(null);
+        setFlash(true);
+        setTimeout(() => setFlash(false), 160);
 
-      // Count down: 3 -> 2 -> 1 -> Flash!
-      let count = 3;
-      setCountdown(count);
-
-      const countInterval = setInterval(() => {
-        count -= 1;
-        if (count > 0) {
-          setCountdown(count);
-        } else {
-          clearInterval(countInterval);
-          setCountdown(null);
-          
-          // Flash effect
-          setFlash(true);
-          setTimeout(() => setFlash(false), 150);
-          
-          // Capture the exact area using Canvas or html2canvas
-          setTimeout(async () => {
-             if (captureAreaRef.current) {
-                // Ensure physics Canvas and Video are captured together.
-                const canvas = await html2canvas(captureAreaRef.current, {
-                    backgroundColor: null,
-                    useCORS: true,
-                    scale: window.devicePixelRatio || 2, 
-                });
-                const imgData = canvas.toDataURL('image/png');
-                
-                setCapturedBuffer(prev => {
-                  const newBuffer = [...prev, imgData];
-                  if (newBuffer.length >= frameConfig.totalShots) {
-                     setTimeout(() => onComplete(newBuffer), 1000);
-                  }
-                  return newBuffer;
-                });
-                shotCount++;
-                setShotsTaken(shotCount);
-                
-                // Trigger next loop if more
-                if(shotCount < frameConfig.totalShots) {
-                   captureLoop();
-                }
-             }
-          }, 100);
-        }
+        // Capture canvas as-is (includes video + physics + effects)
+        const dataUrl = stageCanvas.current?.toDataURL('image/png') ?? '';
+        shots.push(dataUrl);
+        setShotsTaken(shots.length);
+        doneCallback();
       }, 1000);
     };
 
-    captureLoop();
-  }, [isCapturing, frameConfig.totalShots, onComplete]);
+    const runShots = (remaining: number) => {
+      if (remaining === 0) {
+        setIsCapturing(false);
+        onComplete(shots);
+        return;
+      }
+      captureOne(() => setTimeout(() => runShots(remaining - 1), 600));
+    };
+
+    runShots(frameConfig.totalShots);
+  }, [isCapturing, onComplete, frameConfig.totalShots]);
 
   return (
-    <div className="camera-screen screen-layout fade-in">
-      <div className="camera-header glass-panel">
-         <h2>{isTypeA ? "세로네컷 (A형)" : "가로네컷 (B형)"} 촬영 중</h2>
-         <p>{shotsTaken} / {frameConfig.totalShots} 장컷 완료</p>
+    <div className="cam-screen">
+      {/* Hidden video element — feeds canvas draw loop */}
+      {/* Safety: position: absolute hides but lets browser/AI process the video buffer */}
+      <video 
+        ref={videoRef} 
+        style={{ position: 'absolute', left: '-9999px', opacity: 0, width: '1px', height: '1px' }} 
+        autoPlay 
+        playsInline 
+        muted 
+      />
+
+      <div className="cam-header glass-panel">
+        <span>{isA ? '세로네컷 A형 (데스크톱)' : '가로네컷 B형 (모바일)'}</span>
+        <span className="shot-counter">{shotsTaken} / {frameConfig.totalShots}</span>
       </div>
 
-      <div className="camera-stage">
-        {/* Full area that gets captured */}
-        <div ref={captureAreaRef} className="capture-wrapper">
-          <video 
-            ref={videoRef} 
-            className="webcam-video" 
-            autoPlay 
-            playsInline 
-            muted 
-          />
-          {/* Physics & Realtime effects layer */}
-          <div ref={playAreaRef} className="physics-layer"></div>
-        </div>
+      {/* Stage: this IS the cropped view, no overlay needed */}
+      <div className="stage-wrapper" style={{ aspectRatio: `${STAGE_W} / ${STAGE_H}` }}>
+        <canvas
+          ref={stageCanvas}
+          className="stage-canvas"
+          width={STAGE_W}
+          height={STAGE_H}
+        />
 
-        {/* UI Overlay (Crop Guide) - NOT captured */}
-        {!isCapturing && (
-           <div className={`crop-overlay ${isTypeA ? 'type-a' : 'type-b'}`}>
-              <div className="crop-mask"></div>
-              <div className="crop-border"></div>
-           </div>
+        {/* HUD: petal counter — hidden during capture */}
+        {!isCapturing && isModelReady && (
+          <div className="petal-hud">🌸 손 위 꽃잎: <strong>{petalCount}</strong></div>
         )}
 
-        {/* HUD Overlay */}
+        {countdown !== null && (
+          <div className="countdown">{countdown}</div>
+        )}
+        {flash && <div className="flash" />}
+
+        {/* Gesture guide shown when not capturing */}
         {!isCapturing && (
-          <div className="score-hud glass-panel">
-             <span>🌸 받은 벚꽃잎:</span>
-             <span className="score-count">{petalCount}</span>
+          <div className="gesture-guide">
+            <span>✌️ Confetti</span>
+            <span>💖 하트</span>
+            <span>🦋 나비</span>
           </div>
         )}
-        
-        {countdown !== null && (
-          <div className="countdown-display">{countdown}</div>
-        )}
-        {flash && <div className="flash-overlay"></div>}
       </div>
 
-      <div className="camera-controls">
-         <button className="back-btn" onClick={onBack} disabled={isCapturing}>
-             뒤로가기
-         </button>
-         <button className={`btn-primary capture-btn ${isCapturing ? 'disabled' : ''}`} onClick={takeSequence} disabled={isCapturing || !isModelReady}>
-            <Camera size={28} />
-            {isCapturing ? '촬영 중...' : '셔터 누르기'}
-         </button>
+      <div className="cam-controls">
+        <button className="back-btn" onClick={onBack} disabled={isCapturing}>← 뒤로</button>
+        <button
+          className={`btn-primary shoot-btn ${!isModelReady || isCapturing ? 'disabled' : ''}`}
+          onClick={shoot}
+          disabled={!isModelReady || isCapturing}
+        >
+          📸 {isCapturing ? '촬영 중...' : '셔터'}
+        </button>
       </div>
 
-      {(!isModelReady && !isCapturing) && (
-        <div className="loading-toast glass-panel">
-           AI 모델 준비중... 잠시만 기다려주세요 ⏳
-        </div>
+      {!isModelReady && (
+        <div className="loading-pill glass-panel">⏳ AI 모델 로딩 중...</div>
       )}
     </div>
   );
-};
-
-export default CameraCapture;
+}
