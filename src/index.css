@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Jua&family=Nunito:wght@400;600;700&display=swap');
+
+:root {
+  --primary: #FFB7B2; /* Pastel Pink */
+  --primary-light: #FFDAC1; /* Light Peach */
+  --primary-dark: #FF9AA2; /* Darker Pink */
+  --background: #FFFDF9; /* Soft Warm White */
+  --text-main: #5C4d4d; /* Soft Brown */
+  --text-muted: #9E8C8C;
+  --accent: #E2F0CB; /* Light Green */
+  --shadow: rgba(255, 183, 178, 0.4);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Jua', 'Nunito', sans-serif;
+  background-color: var(--background);
+  color: var(--text-main);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  outline: none;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+}
+
+.title-text {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  text-shadow: 2px 2px 0px #fff, 4px 4px 8px rgba(255, 154, 162, 0.3);
+  letter-spacing: 1px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  padding: 1rem 2.5rem;
+  border-radius: 50px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  box-shadow: 0 8px 20px var(--shadow);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 25px rgba(255, 154, 162, 0.5);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}

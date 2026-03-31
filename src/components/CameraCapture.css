@@ -1,0 +1,173 @@
+.camera-screen {
+  background: #2a2121; /* Darker background during capture */
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
+  gap: 1.5rem;
+}
+
+.camera-header {
+  padding: 1rem 3rem;
+  text-align: center;
+  border-radius: 50px;
+}
+.camera-header h2 { font-size: 1.8rem; color: var(--primary-dark); }
+.camera-header p { font-size: 1.2rem; margin-top: 4px; color: #8C7A7A;}
+
+.camera-stage {
+  position: relative;
+  width: 90vw;
+  max-width: 1000px;
+  height: 65vh;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  background: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* This is the area getting captured via html2canvas */
+.capture-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.webcam-video {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Important: fills the screen but crops appropriately */
+  transform: scaleX(-1); /* Mirror camera */
+}
+
+/* Layer where Matter.js draws effects */
+.physics-layer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+.physics-layer canvas {
+  width: 100%;
+  height: 100%;
+  /* matter.js canvas flip since webcam is flipped */
+  transform: scaleX(-1); 
+}
+
+/* Crop Guide System using CSS Border/Mask tricks */
+.crop-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.crop-overlay .crop-mask {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.45); /* Darken outer area */
+}
+
+/* Type A (1x4 세로용) - 화면을 세로로 좁게 자름 (예: 3:4 비율 아크릴 프레임형) */
+.crop-overlay.type-a .crop-border {
+  position: relative;
+  width: 320px; 
+  height: 426px; /* 3:4 Aspect */
+  border: 4px dashed rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.45); /* Additional darkening hack to clear inner */
+  background: transparent;
+  z-index: 21;
+}
+
+/* Type B (2x2 가로용) - 화면을 넓게 자름 (예: 4:3) */
+.crop-overlay.type-b .crop-border {
+  position: relative;
+  width: 640px; 
+  height: 480px; /* 4:3 Aspect */
+  border: 4px dashed rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+  background: transparent;
+  z-index: 21;
+}
+
+/* Disable mask via CSS masking if needed, but box-shadow trick is easier */
+.crop-overlay .crop-mask { 
+  display: none; /* using box-shadow instead for center hole */
+}
+
+/* HUD Element */
+.score-hud {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 30;
+  padding: 0.8rem 1.5rem;
+  font-size: 1.4rem;
+  color: var(--primary-dark);
+  font-weight: bold;
+  pointer-events: none;
+}
+.score-count { margin-left: 8px; font-size: 1.6rem; color: #ff5e72; }
+
+/* Flashing Effects */
+.countdown-display {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12rem;
+  color: white;
+  z-index: 50;
+  text-shadow: 0 0 40px rgba(255, 123, 137, 0.8);
+  font-weight: 800;
+  animation: pulse 1s ease-in-out forwards;
+}
+
+.flash-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: white;
+  z-index: 100;
+  opacity: 1;
+  animation: flashFade 0.15s ease-out forwards;
+}
+@keyframes flashFade { to { opacity: 0; } }
+
+.loading-toast {
+  position: absolute;
+  bottom: 120px;
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  z-index: 40;
+  color: #ff5e72;
+}
+
+.camera-controls {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.capture-btn {
+  padding: 1.5rem 4rem;
+  font-size: 1.8rem;
+}
+.capture-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

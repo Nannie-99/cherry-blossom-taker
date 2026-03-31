@@ -1,0 +1,73 @@
+.intro-screen {
+  background: radial-gradient(circle at center, #FFFDF9 0%, #FFE5E5 100%);
+  position: relative;
+}
+
+.intro-content {
+  padding: 4rem;
+  text-align: center;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  max-width: 600px;
+  width: 90%;
+}
+
+.intro-title {
+  font-size: 3.5rem;
+  line-height: 1.3;
+  color: #FF7B89;
+  text-shadow: 2px 2px 0px #fff, 4px 4px 12px rgba(255, 123, 137, 0.4);
+}
+
+.intro-subtitle {
+  font-size: 1.4rem;
+  color: #8C7A7A;
+  font-weight: 600;
+}
+
+.start-btn {
+  margin-top: 1rem;
+  padding: 1.2rem 3rem;
+  font-size: 1.5rem;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.petals-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.intro-petal {
+  position: absolute;
+  top: -10%;
+  font-size: 1.5rem;
+  opacity: 0.6;
+  animation-name: fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes fall {
+  0% { transform: translateY(-10vh) rotate(0deg) translateX(0); opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.8; }
+  100% { transform: translateY(110vh) rotate(360deg) translateX(100px); opacity: 0; }
+}
+
+@media (max-width: 600px) {
+  .intro-title {
+    font-size: 2.5rem;
+  }
+  .intro-content {
+    padding: 2.5rem 1.5rem;
+  }
+}
