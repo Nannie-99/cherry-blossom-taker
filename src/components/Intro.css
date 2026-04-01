@@ -15,24 +15,136 @@
   width: 90%;
 }
 
-.intro-title {
-  font-size: 3.5rem;
-  line-height: 1.3;
-  color: #FF7B89;
-  text-shadow: 2px 2px 0px #fff, 4px 4px 12px rgba(255, 123, 137, 0.4);
+.title-group {
+  margin-bottom: 2rem;
 }
 
-.intro-subtitle {
-  font-size: 1.4rem;
+.main-title {
+  font-size: 5rem;
+  font-family: 'Outfit', sans-serif;
+  color: #FF7B89;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 20px rgba(255, 123, 137, 0.3);
+  font-weight: 800;
+}
+
+.sub-title {
+  font-size: 1.8rem;
   color: #8C7A7A;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
 }
 
 .start-btn {
-  margin-top: 1rem;
   padding: 1.2rem 3rem;
   font-size: 1.5rem;
   animation: pulse 2s infinite ease-in-out;
+}
+
+.help-btn {
+  background: rgba(255, 255, 255, 0.5);
+  color: #8C7A7A;
+  padding: 0.8rem 2.5rem;
+  font-size: 1.1rem;
+  border: 1px solid rgba(140, 122, 122, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 50px;
+  transition: all 0.2s;
+}
+
+.help-btn:hover {
+  background: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 3rem 2rem 2rem;
+  text-align: left;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.2rem;
+  background: none;
+  border: none;
+  color: #8C7A7A;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+.modal-title {
+  font-size: 1.8rem;
+  color: #FF7B89;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.modal-section h4 {
+  color: #FF7B89;
+  margin-bottom: 0.4rem;
+  font-size: 1.2rem;
+}
+
+.modal-section p {
+  color: #555;
+  line-height: 1.5;
+}
+
+.gesture-list {
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.gesture-list li {
+  color: #555;
+  background: rgba(255, 255, 255, 0.4);
+  padding: 0.6rem 1rem;
+  border-radius: 12px;
+}
+
+.modal-ok {
+  margin-top: 2rem;
+  width: 100%;
 }
 
 .petals-bg {
@@ -64,8 +176,11 @@
 }
 
 @media (max-width: 600px) {
-  .intro-title {
-    font-size: 2.5rem;
+  .main-title {
+    font-size: 3.5rem;
+  }
+  .sub-title {
+    font-size: 1.4rem;
   }
   .intro-content {
     padding: 2.5rem 1.5rem;

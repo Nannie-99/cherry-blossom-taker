@@ -2,7 +2,7 @@ const { Jimp, intToRGBA, rgbaToInt } = require("jimp");
 const path = require("path");
 const fs = require("fs");
 
-const SRC_DIR = "C:/Users/허난경/.gemini/antigravity/brain/5bd76a2d-88a0-4f5b-80ed-2d3cbc41bdc8";
+const SRC_DIR = "C:/Users/허난경/.gemini/antigravity/brain/e634afe2-08b4-4f57-9ecc-6116b7f81322";
 const DEST_DIR = "c:/Users/허난경/Desktop/Project/03-cherry-blossom-taker/src/assets";
 
 async function processImage(filename) {
@@ -12,7 +12,7 @@ async function processImage(filename) {
     
     // Resize image to something smaller like 150px for petals and 300px for full blossoms/butterflies to save memory and physics performance
     const isPetal = filename.includes("petal");
-    image.resize({ w: isPetal ? 100 : 250 });
+    image.resize({ w: isPetal ? 100 : 400 });
 
     const width = image.bitmap.width;
     const height = image.bitmap.height;
@@ -49,7 +49,7 @@ async function processImage(filename) {
 async function main() {
   const files = fs.readdirSync(SRC_DIR);
   // Find all generated images
-  const images = files.filter(f => f.endsWith('.png') && (f.startsWith('full_blossom_') || f.startsWith('single_petal_') || f.startsWith('butterfly_group_')));
+  const images = files.filter(f => f.endsWith('.png') && f.includes('_crown_'));
   
   console.log(`Found ${images.length} images to process...`);
   for (const img of images) {

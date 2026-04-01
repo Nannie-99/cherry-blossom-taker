@@ -3,7 +3,7 @@ import type { RefObject } from 'react';
 import { FilesetResolver, HandLandmarker, FaceLandmarker } from '@mediapipe/tasks-vision';
 import type { HandLandmarkerResult, FaceLandmarkerResult } from '@mediapipe/tasks-vision';
 
-export type Gesture = 'none' | 'heart' | 'peace' | 'flowercup';
+export type Gesture = 'none' | 'heart' | 'peace' | 'flowercup' | 'open_palm';
 
 export type AIResults = {
   hands: HandLandmarkerResult | null;
@@ -17,25 +17,45 @@ function determineGesture(
 ): Gesture {
   if (!hands.landmarks || hands.landmarks.length === 0) return 'none';
 
-  const lm = hands.landmarks[0];
-
-  // Helper: is a finger extended? (tip y < pip y — y goes down in image space)
-  const up = (tip: number, pip: number) => lm[tip].y < lm[pip].y;
+  // Check if any hand is showing an open palm
+  let openPalmDetected = false;
+  for (const lm of hands.landmarks) {
+    const isExtended = (tip: number, pip: number) => lm[tip].y < lm[pip].y;
+    // Check if fingers are mostly straight, wrist is at the bottom (y axis goes down)
+    const fingersUp = isExtended(8, 6) && isExtended(12, 10) && isExtended(16, 14) && isExtended(20, 18);
+    // Ensure the wrist is below the fingers (higher Y value)
+    const palmUp = lm[0].y > lm[9].y && lm[0].y > lm[5].y;
+    
+    // Make sure we're not confusing it with peace (which will be caught later if it is)
+    if (fingersUp && palmUp) {
+      openPalmDetected = true;
+    }
+  }
 
   // ── V / Peace ─────────────────────────────────────────────
-  const indexUp  = up(8,  6);
-  const middleUp = up(12, 10);
-  const ringDown  = !up(16, 14);
-  const pinkyDown = !up(20, 18);
-  if (indexUp && middleUp && ringDown && pinkyDown) return 'peace';
+  // Need to be strict so open palm doesn't trigger it
+  let peaceDetected = false;
+  for (const lm of hands.landmarks) {
+    const up = (tip: number, pip: number) => lm[tip].y < lm[pip].y;
+    const indexUp  = up(8,  6) && up(8, 5);
+    const middleUp = up(12, 10) && up(12, 9);
+    // Be strict about ring and pinky being curled down
+    const ringDown  = lm[16].y > lm[14].y;
+    const pinkyDown = lm[20].y > lm[18].y;
+    if (indexUp && middleUp && ringDown && pinkyDown) {
+      peaceDetected = true;
+      break;
+    }
+  }
+  if (peaceDetected) return 'peace';
 
   // ── Flower Cup (both palms near chin) ─────────────────────
   if (hands.landmarks.length >= 2 && face?.faceLandmarks?.length) {
     const chin = face.faceLandmarks[0][152];
     const h1 = hands.landmarks[0][0];
     const h2 = hands.landmarks[1][0];
-    const near1 = Math.abs(h1.y - chin.y) < 0.18;
-    const near2 = Math.abs(h2.y - chin.y) < 0.18;
+    const near1 = Math.abs(h1.y - chin.y) < 0.20;
+    const near2 = Math.abs(h2.y - chin.y) < 0.20;
     const close = Math.abs(h1.x - h2.x) < 0.35;
     if (near1 && near2 && close) return 'flowercup';
   }
@@ -46,9 +66,15 @@ function determineGesture(
     const b = hands.landmarks[1];
     const idxDist   = Math.hypot(a[8].x - b[8].x, a[8].y - b[8].y);
     const thumbDist = Math.hypot(a[4].x - b[4].x, a[4].y - b[4].y);
-    // Loosened threshold: 0.12 -> 0.18 for easier detection
-    if (idxDist < 0.18 && thumbDist < 0.18) return 'heart';
+    
+    // Make sure other fingers are curled (y is lower than knuckle)
+    const aOthersCurled = a[12].y > a[9].y && a[16].y > a[13].y;
+    const bOthersCurled = b[12].y > b[9].y && b[16].y > b[13].y;
+
+    if (idxDist < 0.15 && thumbDist < 0.15 && aOthersCurled && bOthersCurled) return 'heart';
   }
+  
+  if (openPalmDetected) return 'open_palm';
 
   return 'none';
 }

@@ -48,6 +48,11 @@ function App() {
           setFinalImage={setFinalImage}
         />
       )}
+
+      <footer className="global-footer">
+        <div className="footer-left">© 2026. 난쌤 All rights reserved.</div>
+        <div className="footer-right">문의 사항은 @hello.nan_ssaem</div>
+      </footer>
     </div>
   );
 }

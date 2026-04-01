@@ -27,7 +27,7 @@
 .stage-wrapper {
   position: relative;
   /* height cap so it fits the screen */
-  max-height: 78vh;
+  max-height: 85vh;
   /* width will follow aspect-ratio */
   width: auto;
   border-radius: 10px;
@@ -125,4 +125,55 @@
   font-size: 1.1rem;
   color: #FF9AA2;
   border-radius: 50px;
+}
+.initial-guide-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.initial-guide-content {
+  max-width: 400px;
+  text-align: center;
+  padding: 3rem 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.guide-icon {
+  font-size: 3.5rem;
+  margin-bottom: 1.5rem;
+  animation: float 3s infinite ease-in-out;
+}
+
+.initial-guide-content p {
+  font-size: 1.3rem;
+  color: white;
+  line-height: 1.6;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.initial-guide-content span {
+  font-size: 1rem;
+  opacity: 0.9;
+  font-weight: 500;
+  color: #FFDAE0;
+}
+
+@media (max-width: 600px) {
+  .initial-guide-content {
+    width: 90%;
+    padding: 2rem 1rem;
+  }
+  .initial-guide-content p {
+    font-size: 1.1rem;
+  }
 }

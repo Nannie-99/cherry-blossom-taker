@@ -37,16 +37,23 @@ export default function CameraCapture({ frameConfig, onComplete, onBack }: Camer
 
   // Stage canvas = viewport the user shoots through.
   // Size = individual cell aspect ratio (not whole frame ratio).
-  // A: each cell ≈ 568×405 → landscape 640×457
+  // A: each cell ≈ 568×405 → landscape 896×640 (increased 1.4x for visibility)
   // B: each cell ≈ 576×826 → portrait  480×686
-  const STAGE_W = isA ? 640 : 480;
-  const STAGE_H = isA ? 457 : 686;
+  const STAGE_W = isA ? 896 : 480;
+  const STAGE_H = isA ? 640 : 686;
 
   // AI hook
   const { results, isModelReady } = useMediaPipe(videoRef);
 
+  // Initial guide show for 5 seconds
+  const [showInitialGuide, setShowInitialGuide] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowInitialGuide(false), 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Physics / render hook (draws onto stageCanvas)
-  const { initPhysics, destroyPhysics, petalCount } = useMatterPhysics(stageCanvas, videoRef, results);
+  const { initPhysics, destroyPhysics, petalCount } = useMatterPhysics(stageCanvas, videoRef, results, frameConfig.type);
 
   // ── Camera setup ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -119,7 +126,7 @@ export default function CameraCapture({ frameConfig, onComplete, onBack }: Camer
     const shots: string[] = [];
 
     const captureOne = (doneCallback: () => void) => {
-      let c = 3;
+      let c = 10;
       setCountdown(c);
       const iv = setInterval(() => {
         c -= 1;
@@ -143,7 +150,7 @@ export default function CameraCapture({ frameConfig, onComplete, onBack }: Camer
         onComplete(shots);
         return;
       }
-      captureOne(() => setTimeout(() => runShots(remaining - 1), 600));
+      captureOne(() => setTimeout(() => runShots(remaining - 1), 1000));
     };
 
     runShots(frameConfig.totalShots);
@@ -188,9 +195,20 @@ export default function CameraCapture({ frameConfig, onComplete, onBack }: Camer
         {/* Gesture guide shown when not capturing */}
         {!isCapturing && (
           <div className="gesture-guide">
-            <span>✌️ Confetti</span>
-            <span>💖 하트</span>
-            <span>🦋 나비</span>
+            <div className="gesture-item">✌️ 화환</div>
+            <div className="gesture-item">🫶 하트</div>
+            <div className="gesture-item">🤗 나비</div>
+            <div className="gesture-item">🫴 벚꽃 잡기</div>
+          </div>
+        )}
+
+        {/* Initial setup guide modal */}
+        {showInitialGuide && (
+          <div className="initial-guide-overlay fade-in">
+            <div className="initial-guide-content glass-panel">
+              <div className="guide-icon">📸</div>
+              <p>얼굴과 손이 화면에 잘 보이도록<br /><strong>1~1.5m 정도 거리</strong>를 유지해주세요.<br /><br /><span>밝은 곳에서 인식이 더 잘 됩니다!</span></p>
+            </div>
           </div>
         )}
       </div>
@@ -206,9 +224,6 @@ export default function CameraCapture({ frameConfig, onComplete, onBack }: Camer
         </button>
       </div>
 
-      {!isModelReady && (
-        <div className="loading-pill glass-panel">⏳ AI 모델 로딩 중...</div>
-      )}
     </div>
   );
 }
