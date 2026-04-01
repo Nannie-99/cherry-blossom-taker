@@ -3,6 +3,7 @@ import Intro from './components/Intro';
 import FrameSelection from './components/FrameSelection';
 import CameraCapture from './components/CameraCapture';
 import Result from './components/Result';
+import { Analytics } from "@vercel/analytics/react";
 import './App.css';
 
 export type ScreenState = 'intro' | 'selection' | 'camera' | 'result';
@@ -53,6 +54,7 @@ function App() {
         <div className="footer-left">© 2026. 난쌤 All rights reserved.</div>
         <div className="footer-right">문의 사항은 @hello.nan_ssaem</div>
       </footer>
+      <Analytics />
     </div>
   );
 }
