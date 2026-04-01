@@ -36,7 +36,7 @@ const Intro = ({ onNext }: IntroProps) => {
       <div className="intro-content glass-panel fade-in">
         <div className="title-group">
           <h1 className="main-title">벚꽃 네컷</h1>
-          <h2 className="sub-title">우리 교실엔<br/>벌써 봄이 왔어요!</h2>
+          <h2 className="sub-title">우리 교실엔 벌써 봄이 왔어요!</h2>
         </div>
         
         <div className="button-group">

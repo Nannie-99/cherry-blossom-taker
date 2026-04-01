@@ -177,12 +177,19 @@
 
 @media (max-width: 600px) {
   .main-title {
-    font-size: 3.5rem;
+    font-size: 3rem;
   }
   .sub-title {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
   }
   .intro-content {
-    padding: 2.5rem 1.5rem;
+    padding: 1.5rem 1rem;
+    gap: 1.5rem;
+    width: 95%;
+  }
+  .start-btn {
+    padding: 1rem 2rem;
+    font-size: 1.3rem;
+    width: 100%;
   }
 }

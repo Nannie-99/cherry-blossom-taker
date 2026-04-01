@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Jua&family=Nunito:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Jua&family=Nunito:wght@400;600;700&family=Outfit:wght@800&display=swap');
 
 :root {
   --primary: #FFB7B2; /* Pastel Pink */
@@ -15,6 +15,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  word-break: keep-all; /* Preserve Korean word units */
 }
 
 body {
@@ -23,6 +24,8 @@ body {
   color: var(--text-main);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  width: 100%;
+  height: 100dvh; /* dynamic viewport height */
 }
 
 button {
@@ -31,6 +34,7 @@ button {
   border: none;
   background: none;
   outline: none;
+  touch-action: manipulation; /* better for mobile buttons */
 }
 
 .glass-panel {
@@ -48,6 +52,15 @@ button {
   color: var(--primary-dark);
   text-shadow: 2px 2px 0px #fff, 4px 4px 8px rgba(255, 154, 162, 0.3);
   letter-spacing: 1px;
+}
+
+@media (max-width: 600px) {
+  .title-text {
+    font-size: 1.8rem;
+  }
+  .screen-layout {
+    padding: 1rem 1rem 4rem !important; /* Global mobile padding */
+  }
 }
 
 .btn-primary {
