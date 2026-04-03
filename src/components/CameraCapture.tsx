@@ -56,56 +56,138 @@ export default function CameraCapture({ frameConfig, onComplete, onBack }: Camer
   const { initPhysics, destroyPhysics, petalCount } = useMatterPhysics(stageCanvas, videoRef, results, frameConfig.type);
 
   // ── Camera setup ─────────────────────────────────────────────────────────
+  // ── Camera setup ─────────────────────────────────────────────────────────
   useEffect(() => {
     let stream: MediaStream | null = null;
     let cancelled = false;
 
-    const startCam = async () => {
-      // Check API availability first
+    const startCam = async (retryCount = 0) => {
+      // 1. Initial check
       if (!navigator.mediaDevices?.getUserMedia) {
-        alert('이 브라우저는 카메라를 지원하지 않습니다.');
+        alert('이 브라우저는 카메라를 지원하지 않습니다. 최신 브라우저를 사용해 주세요.');
         return;
       }
+
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        // 2. Clear any existing stream before starting a new one
+        if (videoRef.current?.srcObject) {
+          const oldStream = videoRef.current.srcObject as MediaStream;
+          oldStream.getTracks().forEach(t => t.stop());
+          videoRef.current.srcObject = null;
+        }
+
+        // 3. Request stream with fallback for older/limited devices
+        const constraints = {
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30 }
+          },
           audio: false,
-        });
-        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        };
 
-        const vid = videoRef.current;
-        if (!vid) return;
-        vid.srcObject = stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (e) {
+          if ((e as Error).name === 'OverconstrainedError') {
+            // Fallback to basic constraints if ideal fails
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          } else {
+            throw e;
+          }
+        }
 
-        // Wait for metadata so we have real dimensions, then set canvas
-        await new Promise<void>((resolve) => {
-          vid.onloadedmetadata = () => resolve();
+        if (cancelled) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+
+        const video = videoRef.current;
+        if (!video) return;
+
+        // 4. Bind stream and wait for it to actually start flowing
+        video.srcObject = stream;
+        
+        // Use a combination of events for maximum compatibility (iOS/Android/Desktop)
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Camera timeout')), 8000);
+          
+          const checkReady = () => {
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+              clearTimeout(timeout);
+              cleanup();
+              resolve();
+            }
+          };
+
+          const cleanup = () => {
+            video.removeEventListener('loadeddata', checkReady);
+            video.removeEventListener('canplay', checkReady);
+            video.removeEventListener('playing', checkReady);
+            video.removeEventListener('loadedmetadata', checkReady);
+          };
+
+          video.addEventListener('loadeddata', checkReady);
+          video.addEventListener('canplay', checkReady);
+          video.addEventListener('playing', checkReady);
+          video.addEventListener('loadedmetadata', checkReady);
+          
+          // Trigger manually if already ready
+          checkReady();
         });
-        await vid.play();
 
         if (cancelled) return;
+
+        // 5. Play the video explicitly
+        try {
+          await video.play();
+        } catch (playErr) {
+          console.warn('Autoplay prevented or failed:', playErr);
+          // If play fails, we still try to set ready, 
+          // though it might show a black screen until next interaction
+        }
+
+        if (cancelled) return;
+
+        // 6. Set canvas dimensions and signal ready
         if (stageCanvas.current) {
           stageCanvas.current.width  = STAGE_W;
           stageCanvas.current.height = STAGE_H;
         }
         setCamReady(true);
+
       } catch (err) {
         if (cancelled) return;
         const e = err as DOMException;
+        
         if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-          alert('카메라 접근 권한을 허용해 주세요!');
+          alert('카메라 접근 권한이 거부되었습니다. 설정에서 카메라 권한을 확인해 주세요.');
+        } else if (e.name === 'AbortError' || e.name === 'NotReadableError' || e.message === 'Camera timeout') {
+          // Device busy or temporary glitch - retry with exponential backoff
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          console.warn(`Camera busy or timed out, retrying in ${delay}ms...`, e);
+          setTimeout(() => startCam(retryCount + 1), delay);
         } else {
-          console.error('Camera error:', e);
-          // Not a permission error – might be device busy, retry silently
-          setTimeout(startCam, 1500);
+          console.error('Camera initialization error:', e);
+          // General error - one-time quick retry
+          if (retryCount < 2) {
+            setTimeout(() => startCam(retryCount + 1), 1000);
+          }
         }
       }
     };
 
     startCam();
+
     return () => {
       cancelled = true;
-      stream?.getTracks().forEach((t) => t.stop());
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [STAGE_W, STAGE_H]);
@@ -126,7 +208,7 @@ export default function CameraCapture({ frameConfig, onComplete, onBack }: Camer
     const shots: string[] = [];
 
     const captureOne = (doneCallback: () => void) => {
-      let c = 10;
+      let c = 5;
       setCountdown(c);
       const iv = setInterval(() => {
         c -= 1;

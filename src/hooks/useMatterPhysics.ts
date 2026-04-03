@@ -68,6 +68,8 @@ export default function useMatterPhysics(
   const engineRef   = useRef<Matter.Engine | null>(null);
   const faceBodyRef = useRef<Matter.Body | null>(null);
   const handBodies  = useRef<Matter.Body[]>([]);
+  const lastHandPos = useRef<{x: number, y: number}[]>([{x: -500, y: -500}, {x: -500, y: -500}]);
+  const lastFacePos = useRef<{x: number, y: number}>({x: -500, y: -500});
   const petalBodies = useRef<PetalBody[]>([]);
   const rafRef      = useRef<number>(0);
   const spawnTimerRef = useRef<number>(0);
@@ -197,7 +199,7 @@ export default function useMatterPhysics(
     const canvas = stageCanvasRef.current;
     const { Engine, Bodies, Composite, Body } = Matter;
 
-    const engine = Engine.create({ gravity: { x: 0, y: 0.6 } });
+    const engine = Engine.create({ gravity: { x: 0, y: 0.7 } });
     engineRef.current = engine;
 
     // Floor / walls so petals don't fall off forever
@@ -207,8 +209,8 @@ export default function useMatterPhysics(
 
     // Face / hand invisible sensors
     const face  = Bodies.circle(-500, -500, 90, { isStatic: true, isSensor: false, render: { visible: false } });
-    const hand1 = Bodies.rectangle(-500, -500, 150, 24, { isStatic: true, isSensor: false, render: { visible: false }, friction: 1.0, restitution: 0 });
-    const hand2 = Bodies.rectangle(-500, -500, 150, 24, { isStatic: true, isSensor: false, render: { visible: false }, friction: 1.0, restitution: 0 });
+    const hand1 = Bodies.rectangle(-500, -500, 180, 50, { isStatic: true, isSensor: false, render: { visible: false }, friction: 0.4, restitution: 0.2 });
+    const hand2 = Bodies.rectangle(-500, -500, 180, 50, { isStatic: true, isSensor: false, render: { visible: false }, friction: 0.4, restitution: 0.2 });
 
     faceBodyRef.current = face;
     handBodies.current  = [hand1, hand2];
@@ -228,8 +230,20 @@ export default function useMatterPhysics(
       const size   = (isFull ? 58 : 50) * scale;
 
       const x = Math.random() * w;
+
+      // ── Variation in falling speed (Fast / Normal / Slow) ──
+      const speedRand = Math.random();
+      let speedMult = 1.0;
+      if (speedRand < 0.33) {
+        speedMult = 0.7; // Fast (less air resistance)
+      } else if (speedRand < 0.66) {
+        speedMult = 1.0; // Normal
+      } else {
+        speedMult = 1.4; // Slow (more air resistance)
+      }
+
       const body = Bodies.circle(x, -60, size / 2, {
-        frictionAir: isFull ? 0.06 : 0.10,
+        frictionAir: (isFull ? 0.06 : 0.10) * speedMult,
         restitution: 0.15,
         friction: 0.5,
         mass: isFull ? 0.4 : 0.15,
@@ -248,20 +262,20 @@ export default function useMatterPhysics(
       Composite.add(engine.world, body);
 
       // FIFO: fade out oldest when too many
-      // B-type has lower limit (30) for performance on mobile
-      const LIMIT = frameType === 'B' ? 30 : 40;
+      // Improved limits for 2026: A(50), B(38) (~1.1x increase)
+      const LIMIT = frameType === 'B' ? 38 : 50;
       if (petalBodies.current.length > LIMIT) {
         const excess = petalBodies.current.length - LIMIT;
         for (let i = 0; i < excess; i++) {
           const target = petalBodies.current[i];
-          target._opacity = Math.max(0, (target._opacity ?? 1) - 0.2); // Faster fade for excess
+          target._opacity = Math.max(0, (target._opacity ?? 1) - 0.18); // Slightly slower fade-out
           if (target._opacity <= 0) {
             Composite.remove(engine.world, target);
             petalBodies.current.splice(i, 1);
           }
         }
       }
-    }, 700);
+    }, 600);
 
     // ── Render loop ──────────────────────────────────────────
     const renderLoop = () => {
@@ -287,6 +301,58 @@ export default function useMatterPhysics(
       ctx.drawImage(vid, sx, sy, sw, sh, -W, 0, W, H);
       ctx.restore();
 
+      // 1.5 Sync face/hand from AI (higher frequency in render loop)
+      const { face, hands, gesture } = aiRef.current;
+      if (face?.faceLandmarks?.[0]) {
+        const vW = vid.videoWidth || 1280;
+        const vH = vid.videoHeight || 720;
+        const { sx, sy, sw, sh } = getCropParams(vW, vH, W, H);
+        const nose = face.faceLandmarks[0][1];
+        const nx = (nose.x * vW - sx) / sw;
+        const ny = (nose.y * vH - sy) / sh;
+        const newX = (1 - nx) * W;
+        const newY = ny * H;
+        
+        const lx = lastFacePos.current.x;
+        const ly = lastFacePos.current.y;
+        const dx = lx === -500 ? 0 : (newX - lx);
+        const dy = ly === -500 ? 0 : (newY - ly);
+
+        Body.setPosition(faceBodyRef.current!, { x: newX, y: newY });
+        Body.setVelocity(faceBodyRef.current!, { x: dx, y: dy });
+        lastFacePos.current = { x: newX, y: newY };
+      } else {
+        Body.setPosition(faceBodyRef.current!, { x: -500, y: -500 });
+        Body.setVelocity(faceBodyRef.current!, { x: 0, y: 0 });
+      }
+
+      handBodies.current.forEach((hb, i) => {
+        const h = hands?.landmarks?.[i];
+        if (h && gesture === 'open_palm') {
+          const vW = vid.videoWidth || 1280;
+          const vH = vid.videoHeight || 720;
+          const { sx, sy, sw, sh } = getCropParams(vW, vH, W, H);
+          const nx = (h[9].x * vW - sx) / sw;
+          const ny = (h[9].y * vH - sy) / sh;
+          const newX = (1 - nx) * W;
+          const newY = ny * H;
+
+          const lx = lastHandPos.current[i].x;
+          const ly = lastHandPos.current[i].y;
+          const dx = lx === -500 ? 0 : (newX - lx);
+          const dy = ly === -500 ? 0 : (newY - ly);
+
+          Body.setPosition(hb, { x: newX, y: newY });
+          // Transfer velocity to petals on collision
+          Body.setVelocity(hb, { x: dx, y: dy });
+          lastHandPos.current[i] = { x: newX, y: newY };
+        } else {
+          Body.setPosition(hb, { x: -500, y: -500 });
+          Body.setVelocity(hb, { x: 0, y: 0 });
+          lastHandPos.current[i] = { x: -500, y: -500 };
+        }
+      });
+
       // 2. Step physics
       Matter.Engine.update(engine, 1000 / 60);
 
@@ -296,7 +362,7 @@ export default function useMatterPhysics(
         b._age = (b._age ?? 0) + 1;
         // Gradually reduce opacity for bodies marked for removal
         if (b._opacity !== undefined && b._opacity < 1) {
-          b._opacity = Math.max(0, b._opacity - 0.01);
+          b._opacity = Math.max(0, b._opacity - 0.009); // 1.1x slower fade-out
         }
         ctx.save();
         ctx.globalAlpha = b._opacity ?? 1;
@@ -325,86 +391,30 @@ export default function useMatterPhysics(
 
 
   useEffect(() => {
-    const sync = setInterval(() => {
-      const { face, hands } = aiRef.current;
-      const canvas = stageCanvasRef.current;
-      const vid = videoRef.current;
-      if (!canvas || !engineRef.current || !vid) return;
-      const W = canvas.width;
-      const H = canvas.height;
-      const { Body } = Matter;
-
-      // Face (no mirror – we mirror the draw, so keep coords)
-      if (face?.faceLandmarks?.[0]) {
-        const vW = vid.videoWidth || 1280;
-        const vH = vid.videoHeight || 720;
-        const { sx, sy, sw, sh } = getCropParams(vW, vH, W, H);
-
-        const nose = face.faceLandmarks[0][1];
-        // Map normalized video x/y to cropped canvas x/y
-        const nx = (nose.x * vW - sx) / sw;
-        const ny = (nose.y * vH - sy) / sh;
-
-        Body.setPosition(faceBodyRef.current!, {
-          x: (1 - nx) * W,
-          y: ny * H,
-        });
-      } else {
-        Body.setPosition(faceBodyRef.current!, { x: -500, y: -500 });
-      }
-
-      // Hands
-      const vW = vid.videoWidth || 1280;
-      const vH = vid.videoHeight || 720;
-      const { sx, sy, sw, sh } = getCropParams(vW, vH, W, H);
-
-      handBodies.current.forEach((hb, i) => {
-        const h = hands?.landmarks?.[i];
-        if (h) {
-          const nx = (h[9].x * vW - sx) / sw;
-          const ny = (h[9].y * vH - sy) / sh;
-          
-          if (aiRef.current.gesture === 'open_palm') {
-            Body.setPosition(hb, { x: (1 - nx) * W, y: ny * H });
-          } else {
-            // Drop hands if not openly checking for petals
-            Body.setPosition(hb, { x: -500, y: -500 });
-          }
-        } else {
-          Body.setPosition(hb, { x: -500, y: -500 });
-        }
-      });
-
-      // ── Stacked Petal Counting ──────────────────────────────────────────────
-      // 1. Identify petals directly touching or resting on hand bodies
+    const checkCount = setInterval(() => {
+      // Just check petal count here, position syncing is in render loop
       const onHandIds = new Set<number>();
       const petalArr = petalBodies.current;
       
       petalArr.forEach((p) => {
-        const speedOk = p.speed < 1.8; // Relaxed speed
-        const onHand1 = handBodies.current[0] && speedOk && Math.abs(p.position.y - (handBodies.current[0].position.y - 12)) < 55 && Math.abs(p.position.x - handBodies.current[0].position.x) < 110;
-        const onHand2 = handBodies.current[1] && speedOk && Math.abs(p.position.y - (handBodies.current[1].position.y - 12)) < 55 && Math.abs(p.position.x - handBodies.current[1].position.x) < 110;
+        const speedOk = p.speed < 2.5; // Slightly more relaxed for count
+        const onHand1 = handBodies.current[0] && speedOk && Math.abs(p.position.y - (handBodies.current[0].position.y - 20)) < 60 && Math.abs(p.position.x - handBodies.current[0].position.x) < 120;
+        const onHand2 = handBodies.current[1] && speedOk && Math.abs(p.position.y - (handBodies.current[1].position.y - 20)) < 60 && Math.abs(p.position.x - handBodies.current[1].position.x) < 120;
         
         if (onHand1 || onHand2) {
           onHandIds.add(p.id);
         }
       });
       
-      // 2. Iteratively find petals resting on petals that are already "on hand" (the stack)
-      // We run 3 passes to catch stacks up to 4 petals deep.
       for (let pass = 0; pass < 3; pass++) {
         let addedInPass = false;
         petalArr.forEach((p) => {
           if (onHandIds.has(p.id)) return;
-          
-          // Check if p is resting on any body already in our set
           for (const other of petalArr) {
             if (onHandIds.has(other.id) && other.id !== p.id) {
-              // "Resting" condition: p is above other (p.y < other.y) and close horizontally
               const horizontalDist = Math.abs(p.position.x - other.position.x);
-              const verticalDist   = other.position.y - p.position.y; // positive if p is above other
-              
-              if (horizontalDist < 45 && verticalDist > 2 && verticalDist < 50 && p.speed < 2.0) {
+              const verticalDist   = other.position.y - p.position.y;
+              if (horizontalDist < 50 && verticalDist > 2 && verticalDist < 60 && p.speed < 2.5) {
                 onHandIds.add(p.id);
                 addedInPass = true;
                 break;
@@ -416,10 +426,10 @@ export default function useMatterPhysics(
       }
       
       setPetalCount(onHandIds.size);
-    }, 50);
+    }, 100); // 10fps is enough for the counter
 
-    return () => clearInterval(sync);
-  }, [stageCanvasRef, videoRef, getCropParams]);
+    return () => clearInterval(checkCount);
+  }, []);
 
   // ── Destroy ───────────────────────────────────────────────────────────────
   const destroyPhysics = useCallback(() => {
